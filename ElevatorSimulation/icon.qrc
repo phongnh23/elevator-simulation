@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/elevator">
+        <file>down.png</file>
+        <file>up.png</file>
+        <file>d1.png</file>
+        <file>d2.png</file>
+        <file>u1.png</file>
+        <file>u2.png</file>
+    </qresource>
+</RCC>
