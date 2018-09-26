@@ -14,7 +14,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>ElevatorManager</string>
+   <string>Elevator Simulation</string>
   </property>
   <widget class="QWidget" name="centralWidget">
    <property name="enabled">

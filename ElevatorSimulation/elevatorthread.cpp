@@ -245,7 +245,7 @@ int ElevatorThread::getLastOutRequest(Direction direct)
 
 void ElevatorThread::removeOutRequest(int floor, Direction direct)
 {
-    QMutexLocker lock(&mutex);
+    QMutexLocker lock(&outRequest_mutex);
     if(direct == UP)
         outRequest[floor] = outRequest[floor] > 1 ? 2 : 0;
     if(direct == DOWN)
@@ -280,7 +280,7 @@ void ElevatorThread::drawPassenger(QPainter &painter)
 
     // duyet list va ve ra
     int offset = 40;
-    QMutexLocker locker1(&mutex1);
+    QMutexLocker locker1(&drawPsgr_mutex);
     for(int i = 0; i < tempGetOutPsgr.size() && i < 12; ++i)
     {
         QRect frame(90 + 75, 250 + offset * i + passengerStepOut, 30, 30);
@@ -368,6 +368,7 @@ void ElevatorThread::clearData()
     {
         passengerToFloor[index].clear();
         inRequest[index] = false;
+        QMutexLocker locker(&outRequest_mutex);
         outRequest[index] = 0;
     }
 }
@@ -405,14 +406,14 @@ void ElevatorThread::onPassengerOutsideListSent(QList<Passenger> &upList, QList<
         openDoor(0);
 
         // tao List tempGoUpPsgr de ve~ trc khi mo cua !!
-        mutex1.lock();
+        drawPsgr_mutex.lock();
         if(direction == UP)
             for(int i = 0; i < upList.size(); ++i)
                 tempGoUpPsgr.append(upList.at(i).getPassengerId());      //append/remove
         if(direction == DOWN)
             for(int i = 0; i < downList.size(); ++i)
                 tempGoDownPsgr.append(downList.at(i).getPassengerId());
-        mutex1.unlock();
+        drawPsgr_mutex.unlock();
 
         movePassenger(direction);
 
@@ -435,14 +436,19 @@ void ElevatorThread::onPassengerOutsideListSent(QList<Passenger> &upList, QList<
         passengerMovingFlag = false;
         mwait(0);
         closeDoor();
+
+        drawPsgr_mutex.lock();
         tempGetOutPsgr.clear();
         tempGoUpPsgr.clear();
         tempGoDownPsgr.clear();
+        drawPsgr_mutex.unlock();
 
         upCount = downCount = 0;
         emit painterChanged();
 
+        outRequest_mutex.lock();
         outRequest[currentFloor] = newOutRequest; // cuoi cung moi thay doi outRequest de tranh no bi thay doi boi thread khac. (bi floorThread thay doi!!)
+        outRequest_mutex.unlock();
     }
 }
 
@@ -455,10 +461,10 @@ void ElevatorThread::addPassengerToLift(QList<Passenger> &outList, QList<int> &i
     while(!outList.isEmpty())
     {
         // append inList trong vong lap de tranh sau khi click up/down de add passenger thi inList ko dc update kip -> ko pop dc
-        mutex1.lock();
+        drawPsgr_mutex.lock();
         for(int i = inList.size(); i < outList.size(); ++i)
             inList.append(outList.at(i).getPassengerId());  // append/remove
-        mutex1.unlock();
+        drawPsgr_mutex.unlock();
         // add passengers
         addedWeight = outList.first().getWeight();
         addedSize = outList.first().getSize();
@@ -471,10 +477,10 @@ void ElevatorThread::addPassengerToLift(QList<Passenger> &outList, QList<int> &i
                 outList.pop_front();
 
             // draw
-            mutex1.lock();
+            drawPsgr_mutex.lock();
             if(!inList.isEmpty())
                 inList.pop_front();
-            mutex1.unlock();
+            drawPsgr_mutex.unlock();
             ++numberPassenger;
             emit painterChanged();
 
@@ -511,9 +517,9 @@ void ElevatorThread::removePassengerFromLift()
     while(!passengerToFloor[currentFloor].isEmpty())
     {
         Passenger tempPsgr = passengerToFloor[currentFloor].back();
-        mutex1.lock();
+        drawPsgr_mutex.lock();
         tempGetOutPsgr.push_front(tempPsgr.getPassengerId());        // append/remove
-        mutex1.unlock();
+        drawPsgr_mutex.unlock();
         --numberPassenger;
         emit painterChanged();    // update paintEvent
 
@@ -575,7 +581,7 @@ void ElevatorThread::removeOutRequestWhenFull(int fullWeight, int fullSize)
                      break;     // -> nextFloorWithInRequest la floor gan nhat co inRequest
             for(int index = currentFloor + 1; index < nextFloorWithInRequest; ++index)
             {
-                QMutexLocker locker(&mutex);
+                QMutexLocker locker(&outRequest_mutex);
                 outRequest[index] = outRequest[index] < 2 ? 0 : 2;
             }
         }
@@ -587,7 +593,7 @@ void ElevatorThread::removeOutRequestWhenFull(int fullWeight, int fullSize)
                      break;     // -> nextFloorWithInRequest la floor gan nhat co inRequest
             for(int index = currentFloor - 1; index > nextFloorWithInRequest; --index)
             {
-                QMutexLocker locker(&mutex);
+                QMutexLocker locker(&outRequest_mutex);
                 outRequest[index] = (outRequest[index] == 0 || outRequest[index] == 2) ? 0 : 1;
             }
         }
@@ -674,7 +680,7 @@ void ElevatorThread::onElevatorDelegated(int pickedElevator, int floorRequest, D
 {
     if(pickedElevator == number) // la elevator receive signal
     {
-        QMutexLocker locker(&mutex);
+        QMutexLocker locker(&outRequest_mutex);
         if(outRequest[floorRequest] == 0)
             outRequest[floorRequest] = directionRequest == UP ? 1 : 2;
         else if(outRequest[floorRequest] == 1 && directionRequest == DOWN)     //up-down

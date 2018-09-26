@@ -99,7 +99,7 @@ private:
     QList<int> tempGoDownPsgr;
     int passengerStepOut, passengerStepInUp, passengerStepInDown;
 
-    QMutex mutex, mutex1, mutex2;
+    QMutex outRequest_mutex, drawPsgr_mutex;
 
     int upCount;
     int downCount;
